@@ -38,15 +38,15 @@ emergency_stop = False
 
 def pid_control(error):
     global previous_error, integral
-    integral = integral + error
+    integral += error
     derivative = error - previous_error
     output = Kp * error + Ki * integral + Kd * derivative
     previous_error = error
     return output
 
-def set_motor_speed(pwm_value):
-    pwmA.ChangeDutyCycle(pwm_value)
-    pwmB.ChangeDutyCycle(pwm_value)
+def set_motor_speed(left_pwm, right_pwm):
+    pwmA.ChangeDutyCycle(max(min(left_pwm, 100), 0))  # Constrain PWM to 0-100%
+    pwmB.ChangeDutyCycle(max(min(right_pwm, 100), 0))
 
 def startMotors():
     pwmA.start(0)
@@ -55,13 +55,11 @@ def startMotors():
 def stop():
     pwmA.ChangeDutyCycle(0)
     pwmB.ChangeDutyCycle(0)
-    GPIO.output(motorA2, GPIO.LOW)
-    GPIO.output(motorB2, GPIO.LOW)
+    GPIO.output([motorA2, motorB2], GPIO.LOW)
 
-def forward(pwm_value):
-    set_motor_speed(pwm_value)
-    GPIO.output(motorA2, GPIO.HIGH)
-    GPIO.output(motorB2, GPIO.HIGH)
+def forward(left_pwm, right_pwm):
+    set_motor_speed(left_pwm, right_pwm)
+    GPIO.output([motorA2, motorB2], GPIO.HIGH)
 
 def emergency_stop_check():
     global emergency_stop
@@ -76,7 +74,6 @@ def control_loop():
     readDistance.start_measuring()
     camera.start_camera_thread()
 
-    # Start emergency stop check in a separate thread
     stop_thread = threading.Thread(target=emergency_stop_check)
     stop_thread.start()
 
@@ -86,27 +83,25 @@ def control_loop():
                 stop()
                 break
 
-            # Read sensor data
             distance = readDistance.get_distance()
             com = camera.get_center_of_mass()
 
-            # Stop if too close to an object
             if distance <= safety_distance:
                 stop()
                 continue
 
-            # Assuming center of image is (320, 240) for a 640x480 resolution
             if com is not None:
                 center_x, center_y = com
-                error = 320 - center_x  # Calculate deviation from the center
+                error = 320 - center_x
                 correction = pid_control(error)
-
-                # Adjust motor speed based on PID correction
-                forward(optimal_pwm + correction)
+                left_pwm = optimal_pwm - correction
+                right_pwm = optimal_pwm + correction
             else:
-                forward(optimal_pwm)
+                left_pwm = right_pwm = optimal_pwm
 
-            time.sleep(0.1)  # Adjust as needed for your control loop timing
+            forward(left_pwm, right_pwm)
+
+            time.sleep(0.1)
 
     except KeyboardInterrupt:
         pass
