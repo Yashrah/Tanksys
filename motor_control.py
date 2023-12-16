@@ -22,7 +22,7 @@ pwmA = GPIO.PWM(motorA1, 1000)  # PWM frequency of 1000 Hz
 pwmB = GPIO.PWM(motorB1, 1000)
 
 # PID Controller Parameters
-Kp = 1.0
+Kp = 0.4
 Ki = 0.0
 Kd = 0.0
 
