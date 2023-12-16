@@ -2,6 +2,8 @@ mport RPi.GPIO as GPIO
 import time
 import threading
 import camera_processing as camera
+import readDistance
+
 # Motor Pin Definitions
 motorA1 = 18
 motorA2 = 16
